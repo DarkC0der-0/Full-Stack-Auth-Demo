@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy all package files
 COPY package*.json ./
 COPY backend/package*.json ./backend/
 
@@ -14,28 +14,34 @@ RUN cd backend && npm ci
 # Copy source code
 COPY . .
 
-# Build frontend
+# Build frontend (Vite)
 RUN npm run build
 
 # Copy frontend build to backend/public
 RUN mkdir -p backend/public && cp -r dist/* backend/public/
 
-# Build backend
-RUN cd backend && npm run build
+# Build backend (NestJS)
+WORKDIR /app/backend
+RUN npm run build
+
+# Verify build output exists
+RUN ls -la dist/
 
 # Production stage
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Copy backend package files and install production deps only
+# Copy backend package files
 COPY backend/package*.json ./
+
+# Install production deps only
 RUN npm ci --omit=dev
 
-# Copy built backend from builder
+# Copy built backend dist from builder
 COPY --from=builder /app/backend/dist ./dist
 
-# Copy frontend static files
+# Copy frontend static files  
 COPY --from=builder /app/backend/public ./public
 
 # Expose port
