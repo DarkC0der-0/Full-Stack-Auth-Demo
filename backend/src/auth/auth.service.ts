@@ -18,7 +18,15 @@ export class AuthService {
   async signup(signupDto: SignupDto): Promise<AuthResponseDto> {
     const { email, name, password } = signupDto;
 
-    const saltRounds = this.configService.get<number>('BCRYPT_SALT_ROUNDS', 10);
+    const saltRoundsEnv = this.configService.get<string>('BCRYPT_SALT_ROUNDS', '10');
+    const saltRounds = Number(saltRoundsEnv);
+    if (Number.isNaN(saltRounds) || saltRounds < 4) {
+      this.logger.warn(
+        `Invalid BCRYPT_SALT_ROUNDS value (${saltRoundsEnv}). Falling back to 10.`,
+      );
+      throw new Error('Invalid BCRYPT_SALT_ROUNDS configuration value');
+    }
+
     const passwordHash = await bcrypt.hash(password, saltRounds);
 
     const user = await this.usersService.create(email, name, passwordHash);
