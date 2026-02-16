@@ -1,51 +1,38 @@
-# Build stage
-FROM node:20-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy all package files
+# Copy all package files first
 COPY package*.json ./
 COPY backend/package*.json ./backend/
 
-# Install ALL dependencies (including devDeps for building)
+# Install frontend dependencies
 RUN npm ci
-RUN cd backend && npm ci
 
-# Copy source code
+# Install backend dependencies (all, including dev for building)
+WORKDIR /app/backend
+RUN npm ci
+
+# Copy all source code
+WORKDIR /app
 COPY . .
 
-# Build frontend (Vite)
+# Build frontend
 RUN npm run build
 
-# Copy frontend build to backend/public
+# Copy frontend to backend/public
 RUN mkdir -p backend/public && cp -r dist/* backend/public/
 
-# Build backend (NestJS)
+# Build backend
 WORKDIR /app/backend
 RUN npm run build
 
-# Verify build output exists
-RUN ls -la dist/
+# Verify the build worked
+RUN echo "=== Backend dist contents ===" && ls -la dist/ && echo "=== main.js exists ===" && cat dist/main.js | head -5
 
-# Production stage
-FROM node:20-alpine AS runner
+# Remove devDependencies to slim down
+RUN npm prune --omit=dev
 
-WORKDIR /app
-
-# Copy backend package files
-COPY backend/package*.json ./
-
-# Install production deps only
-RUN npm ci --omit=dev
-
-# Copy built backend dist from builder
-COPY --from=builder /app/backend/dist ./dist
-
-# Copy frontend static files  
-COPY --from=builder /app/backend/public ./public
-
-# Expose port
 EXPOSE 3000
 
-# Start the server
 CMD ["node", "dist/main.js"]
