@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "copy:frontend": "node scripts/prepare-frontend.mjs",
+    "start:railway": "npm run build && npm run copy:frontend && cd backend && npm run build && npm run start:prod"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
