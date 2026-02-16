@@ -1,22 +1,21 @@
 # Full-Stack Auth Demo
 
-A complete authentication experience built with a React + TypeScript frontend and a NestJS + MongoDB backend. Users can sign up, sign in, hit protected routes, and log out. The repo is ready for deployment on DigitalOcean App Platform using Docker, serving both frontend and backend from a single container.
+A complete authentication experience built with a React + TypeScript frontend and a NestJS + MongoDB backend. Users can sign up, sign in, hit protected routes, and log out. The repo is ready for deployment on Fly.io using Docker, serving both frontend and backend from a single container.
 
 ## Tech Stack
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind, motion, react-hook-form
 - **Backend:** NestJS 10, MongoDB (Mongoose), JWT auth, class-validator
 - **Testing:** Jest (backend unit + e2e), React Testing Library (frontend), Supertest
-- **Tooling:** GitHub Actions CI, Docker deployment (DigitalOcean), Swagger/OpenAPI docs
+- **Tooling:** GitHub Actions CI, Docker deployment (Fly.io), Swagger/OpenAPI docs
 
 ## Project Structure
 
 ```
 ├── README.md                 # You are here
 ├── Dockerfile                # Docker build config
+├── fly.toml                  # Fly.io deployment config
 ├── .dockerignore             # Docker ignore patterns
-├── .do/                      # DigitalOcean App Platform config
-│   └── app.yaml              # Deployment configuration
 ├── src/                      # Frontend app (Vite)
 ├── backend/                  # NestJS API
 │   ├── README.md             # Backend-specific docs
@@ -30,7 +29,7 @@ A complete authentication experience built with a React + TypeScript frontend an
 - Node.js 20+
 - npm 10+
 - MongoDB 7+ (local or Atlas) for local runs
-- DigitalOcean account (for deployment)
+- Fly.io account (for deployment)
 
 ## Environment Variables
 
@@ -102,127 +101,152 @@ npm run test -- --watch  # React Testing Library (if configured)
 - OpenAPI JSON auto-exported to `backend/openapi.json` on startup.
 - Protected routes require a `Bearer <token>` header.
 
-## DigitalOcean App Platform Deployment
+## Fly.io Deployment (Recommended)
 
-This repo uses a `Dockerfile` and `.do/app.yaml` to deploy both frontend and backend in a single container on DigitalOcean.
+This repo uses a `Dockerfile` and `fly.toml` to deploy both frontend and backend in a single container on Fly.io.
 
 ### Prerequisites
 
-1. **MongoDB Atlas** (free tier):
-   - Go to [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
-   - Create cluster → Get connection string
-   - Network Access → Allow `0.0.0.0/0`
+1. **Install Fly CLI**:
+   ```bash
+   # macOS/Linux
+   curl -L https://fly.io/install.sh | sh
+   
+   # Windows (PowerShell)
+   iwr https://fly.io/install.ps1 -useb | iex
+   ```
 
-2. **DigitalOcean Account**:
-   - Sign up at [digitalocean.com](https://digitalocean.com)
-   - New users get **$200 free credit** for 60 days
+2. **Login to Fly.io**:
+   ```bash
+   flyctl auth login
+   ```
 
-### Deployment Steps
+### Step 1: Create MongoDB Database
 
-#### Step 1: Create App
+Use MongoDB Atlas (free tier):
+1. Go to [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+2. Create free cluster (M0)
+3. Create database user
+4. Add IP: `0.0.0.0/0` (allow all)
+5. Get connection string: `mongodb+srv://<user>:<pass>@cluster.mongodb.net/auth-app`
 
-1. Go to [cloud.digitalocean.com/apps](https://cloud.digitalocean.com/apps)
-2. Click **Create App**
-3. Choose **GitHub** → Authorize DigitalOcean
-4. Select repository: `DarkC0der-0/Full-Stack-Auth-Demo`
-5. Select branch: `main`
-6. Click **Next**
+### Step 2: Deploy to Fly.io
 
-#### Step 2: Configure Resources
+1. **Launch app** (from project root):
+   ```bash
+   flyctl launch
+   ```
+   - Choose app name (e.g., `fullstack-auth-demo`)
+   - Choose region closest to you
+   - Say **NO** to PostgreSQL
+   - Say **NO** to Redis
+   - Say **YES** to deploy now (or deploy later)
 
-DigitalOcean auto-detects the Dockerfile:
+2. **Set secrets** (environment variables):
+   ```bash
+   flyctl secrets set \
+     MONGODB_URI="mongodb+srv://<user>:<pass>@cluster.mongodb.net/auth-app" \
+     JWT_SECRET="your-super-secret-jwt-key-min-32-chars" \
+     JWT_EXPIRES_IN="7d" \
+     BCRYPT_SALT_ROUNDS="10" \
+     ENABLE_SWAGGER="true"
+   ```
 
-- **Resource Type**: Web Service
-- **Name**: `web`
-- **Dockerfile Path**: `Dockerfile` (auto-detected)
-- **HTTP Port**: `3000`
-- **Instance Size**: Basic (512 MB RAM / 1 vCPU) - **$5/month**
-- **Instance Count**: 1
+3. **Get your app URL** and set frontend variables:
+   ```bash
+   # Your app will be at: https://<app-name>.fly.dev
+   flyctl secrets set \
+     FRONTEND_URL="https://<app-name>.fly.dev" \
+     VITE_API_BASE_URL="https://<app-name>.fly.dev"
+   ```
 
-Click **Next**
+4. **Deploy**:
+   ```bash
+   flyctl deploy
+   ```
 
-#### Step 3: Environment Variables
+### Step 3: Verify Deployment
 
-Add these in the **Environment Variables** section:
+1. **Open app**:
+   ```bash
+   flyctl open
+   ```
 
-**Required (set as encrypted):**
+2. **Check logs**:
+   ```bash
+   flyctl logs
+   ```
+
+3. **Test endpoints**:
+   - Frontend: `https://<app-name>.fly.dev/`
+   - API Docs: `https://<app-name>.fly.dev/api/docs`
+   - Test signup/signin flow
+
+### Useful Fly.io Commands
+
+```bash
+flyctl status              # Check app status
+flyctl logs                # View logs
+flyctl ssh console         # SSH into container
+flyctl secrets list        # List secrets
+flyctl scale show          # Show scaling config
+flyctl deploy              # Redeploy
 ```
+
+---
+
+## Alternative: Render Deployment
+
+<details>
+<summary>Click to expand Render deployment instructions</summary>
+
+### Step 1: Create Render Web Service
+
+1. Go to [render.com](https://render.com) and sign in with GitHub
+2. Click **Dashboard** → **New +** → **Web Service**
+3. Connect your GitHub repo: `DarkC0der-0/Full-Stack-Auth-Demo`
+
+### Step 2: Configure Service
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `fullstack-auth-demo` |
+| **Region** | Your preference |
+| **Branch** | `main` |
+| **Environment** | **Docker** |
+| **Dockerfile Path** | `Dockerfile` |
+| **Build Command** | *(leave blank)* |
+| **Start Command** | *(leave blank)* |
+
+### Step 3: Set Environment Variables
+
+Add these in the **Environment** tab:
+
+```env
 MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/auth-app
 JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+JWT_EXPIRES_IN=7d
+PORT=3000
+BCRYPT_SALT_ROUNDS=10
+NODE_ENV=production
+ENABLE_SWAGGER=true
+FRONTEND_URL=https://<your-service>.onrender.com
+VITE_API_BASE_URL=https://<your-service>.onrender.com
 ```
 
-**Auto-configured (already in `.do/app.yaml`):**
-- `PORT=3000`
-- `NODE_ENV=production`
-- `JWT_EXPIRES_IN=7d`
-- `BCRYPT_SALT_ROUNDS=10`
-- `ENABLE_SWAGGER=true`
+### Step 4: Deploy & Verify
 
-Click **Next**
+1. Click **Create Web Service**
+2. Wait for build to complete (~5-10 minutes)
+3. Visit `https://<your-service>.onrender.com/` for frontend
+4. Visit `https://<your-service>.onrender.com/api/docs` for Swagger UI
 
-#### Step 4: App Info
-
-- **Name**: `fullstack-auth-demo` (or your choice)
-- **Region**: Choose closest to you (e.g., `nyc`, `sfo`, `fra`)
-
-Click **Next** → **Create Resources**
-
-#### Step 5: Update URLs
-
-After deployment completes, you'll get a URL like:
-```
-https://fullstack-auth-demo-xxxxx.ondigitalocean.app
-```
-
-Go back to **Settings** → **Environment Variables** and add:
-```
-FRONTEND_URL=https://fullstack-auth-demo-xxxxx.ondigitalocean.app
-VITE_API_BASE_URL=https://fullstack-auth-demo-xxxxx.ondigitalocean.app
-```
-
-Click **Save** → App will auto-redeploy
-
-### Verify Deployment
-
-1. **Frontend**: Visit `https://your-app.ondigitalocean.app/`
-2. **API Docs**: Visit `https://your-app.ondigitalocean.app/api/docs`
-3. **Test**: Sign up → Sign in → Access protected routes
-
-### Using the CLI (Alternative)
-
-Install DigitalOcean CLI:
-```bash
-brew install doctl  # macOS
-# or download from: https://docs.digitalocean.com/reference/doctl/how-to/install/
-```
-
-Authenticate:
-```bash
-doctl auth init
-```
-
-Deploy:
-```bash
-doctl apps create --spec .do/app.yaml
-```
-
-### Cost
-
-- **Basic plan**: $5/month (512 MB RAM, 1 vCPU)
-- **Professional plan**: $12/month (1 GB RAM, 1 vCPU)
-- **Free credit**: $200 for new accounts (60 days)
-
-### Auto-Deployment
-
-The `.do/app.yaml` config enables auto-deployment:
-- Every push to `main` triggers a new deployment
-- Build takes ~3-5 minutes
-- Zero-downtime rolling updates
+</details>
 
 ## CI/CD
 
 - `.github/workflows/ci.yml` runs linting, backend tests, frontend tests, and builds for both apps on every push/PR.
-- Uncomment the `deploy` job to automatically deploy after passing CI (requires DigitalOcean API token in GitHub secrets).
+- Uncomment the `deploy` job to automatically deploy after passing CI (requires Fly.io API token in GitHub secrets).
 
 ## Backend Details
 
