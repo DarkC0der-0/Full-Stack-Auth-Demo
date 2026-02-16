@@ -1,25 +1,25 @@
 # Full-Stack Auth Demo
 
-A complete authentication experience built with a React + TypeScript frontend and a NestJS + MongoDB backend. Users can sign up, sign in, hit protected routes, and log out. The repo is ready for a single Railway deployment that serves the frontend and backend from one service.
+A complete authentication experience built with a React + TypeScript frontend and a NestJS + MongoDB backend. Users can sign up, sign in, hit protected routes, and log out. The repo is ready for deployment on Render using Docker, serving both frontend and backend from a single container.
 
 ## Tech Stack
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind, motion, react-hook-form
 - **Backend:** NestJS 10, MongoDB (Mongoose), JWT auth, class-validator
 - **Testing:** Jest (backend unit + e2e), React Testing Library (frontend), Supertest
-- **Tooling:** GitHub Actions CI, Railway/Nixpacks deployment, Swagger/OpenAPI docs
+- **Tooling:** GitHub Actions CI, Docker deployment (Render), Swagger/OpenAPI docs
 
 ## Project Structure
 
 ```
 ├── README.md                 # You are here
+├── Dockerfile                # Docker build config
+├── .dockerignore             # Docker ignore patterns
 ├── src/                      # Frontend app (Vite)
 ├── backend/                  # NestJS API
 │   ├── README.md             # Backend-specific docs
 │   ├── src/                  # Auth, users, protected modules
 │   └── test/                 # Unit & e2e tests
-├── railway.json              # Railway deploy config
-├── nixpacks.toml             # Nixpacks build phases (frontend + backend)
 └── ...
 ```
 
@@ -28,7 +28,7 @@ A complete authentication experience built with a React + TypeScript frontend an
 - Node.js 20+
 - npm 10+
 - MongoDB 7+ (local or Atlas) for local runs
-- Railway account (for deployment)
+- Render account (for deployment)
 
 ## Environment Variables
 
@@ -100,34 +100,58 @@ npm run test -- --watch  # React Testing Library (if configured)
 - OpenAPI JSON auto-exported to `backend/openapi.json` on startup.
 - Protected routes require a `Bearer <token>` header.
 
-## Railway Deployment (Single Service)
+## Render Deployment (Docker)
 
-This repo is pre-configured with `railway.json` + `nixpacks.toml` to deploy both apps in one Railway service.
+This repo uses a `Dockerfile` to deploy both frontend and backend in a single container on Render.
 
-1. **Create Railway project** and connect your GitHub repo.
-2. **Add MongoDB plugin** (Railway → New → Database → MongoDB). Railway sets `MONGODB_URI` automatically.
-3. **Set environment variables** (Railway Settings → Variables):
-   ```env
-   JWT_SECRET=your-super-secret-key
-   JWT_EXPIRES_IN=7d
-   PORT=3000
-   BCRYPT_SALT_ROUNDS=10
-   FRONTEND_URL=https://<service>.up.railway.app
-   NODE_ENV=production
-   ENABLE_SWAGGER=true          # or false to hide docs
-   VITE_API_BASE_URL=https://<service>.up.railway.app
-   ```
-4. **Deploy** – Railway uses Nixpacks to:
-   - `npm ci` (frontend) & `cd backend && npm ci`
-   - `npm run build` (frontend) → copies `dist/` to `backend/public/`
-   - `cd backend && npm run build`
-   - Start command: `cd backend && npm run start:prod`
-5. **Verify** – Visit the Railway URL, run a signup/signin flow, and open `/api/docs` if enabled.
+### Step 1: Create Render Web Service
+
+1. Go to [render.com](https://render.com) and sign in with GitHub
+2. Click **Dashboard** → **New +** → **Web Service**
+3. Connect your GitHub repo: `DarkC0der-0/Full-Stack-Auth-Demo`
+
+### Step 2: Configure Service
+
+| Setting | Value |
+|---------|-------|
+| **Name** | `fullstack-auth-demo` |
+| **Region** | Your preference |
+| **Branch** | `main` |
+| **Environment** | **Docker** |
+| **Dockerfile Path** | `Dockerfile` |
+| **Build Command** | *(leave blank)* |
+| **Start Command** | *(leave blank)* |
+
+### Step 3: Set Environment Variables
+
+Add these in the **Environment** tab:
+
+```env
+MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/auth-app
+JWT_SECRET=your-super-secret-jwt-key-min-32-chars
+JWT_EXPIRES_IN=7d
+PORT=3000
+BCRYPT_SALT_ROUNDS=10
+NODE_ENV=production
+ENABLE_SWAGGER=true
+FRONTEND_URL=https://<your-service>.onrender.com
+VITE_API_BASE_URL=https://<your-service>.onrender.com
+```
+
+*(Replace `<your-service>` with your actual Render service name after creation)*
+
+### Step 4: Deploy & Verify
+
+1. Click **Create Web Service**
+2. Wait for build to complete (~5-10 minutes)
+3. Visit `https://<your-service>.onrender.com/` for frontend
+4. Visit `https://<your-service>.onrender.com/api/docs` for Swagger UI
+5. Test signup/signin flow
 
 ## CI/CD
 
 - `.github/workflows/ci.yml` runs linting, backend tests, frontend tests, and builds for both apps on every push/PR.
-- Uncomment the `deploy` job to automatically deploy after passing CI (requires Railway token in GitHub secrets).
+- Uncomment the `deploy` job to automatically deploy after passing CI (requires Render API key in GitHub secrets).
 
 ## Backend Details
 
