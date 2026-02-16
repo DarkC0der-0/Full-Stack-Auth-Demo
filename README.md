@@ -1,13 +1,13 @@
 # Full-Stack Auth Demo
 
-A complete authentication experience built with a React + TypeScript frontend and a NestJS + MongoDB backend. Users can sign up, sign in, hit protected routes, and log out. The repo is ready for deployment on Render using Docker, serving both frontend and backend from a single container.
+A complete authentication experience built with a React + TypeScript frontend and a NestJS + MongoDB backend. Users can sign up, sign in, hit protected routes, and log out. The repo is ready for deployment on DigitalOcean App Platform using Docker, serving both frontend and backend from a single container.
 
 ## Tech Stack
 
 - **Frontend:** React 18, TypeScript, Vite, Tailwind, motion, react-hook-form
 - **Backend:** NestJS 10, MongoDB (Mongoose), JWT auth, class-validator
 - **Testing:** Jest (backend unit + e2e), React Testing Library (frontend), Supertest
-- **Tooling:** GitHub Actions CI, Docker deployment (Render), Swagger/OpenAPI docs
+- **Tooling:** GitHub Actions CI, Docker deployment (DigitalOcean), Swagger/OpenAPI docs
 
 ## Project Structure
 
@@ -15,6 +15,8 @@ A complete authentication experience built with a React + TypeScript frontend an
 ├── README.md                 # You are here
 ├── Dockerfile                # Docker build config
 ├── .dockerignore             # Docker ignore patterns
+├── .do/                      # DigitalOcean App Platform config
+│   └── app.yaml              # Deployment configuration
 ├── src/                      # Frontend app (Vite)
 ├── backend/                  # NestJS API
 │   ├── README.md             # Backend-specific docs
@@ -28,7 +30,7 @@ A complete authentication experience built with a React + TypeScript frontend an
 - Node.js 20+
 - npm 10+
 - MongoDB 7+ (local or Atlas) for local runs
-- Render account (for deployment)
+- DigitalOcean account (for deployment)
 
 ## Environment Variables
 
@@ -100,58 +102,127 @@ npm run test -- --watch  # React Testing Library (if configured)
 - OpenAPI JSON auto-exported to `backend/openapi.json` on startup.
 - Protected routes require a `Bearer <token>` header.
 
-## Render Deployment (Docker)
+## DigitalOcean App Platform Deployment
 
-This repo uses a `Dockerfile` to deploy both frontend and backend in a single container on Render.
+This repo uses a `Dockerfile` and `.do/app.yaml` to deploy both frontend and backend in a single container on DigitalOcean.
 
-### Step 1: Create Render Web Service
+### Prerequisites
 
-1. Go to [render.com](https://render.com) and sign in with GitHub
-2. Click **Dashboard** → **New +** → **Web Service**
-3. Connect your GitHub repo: `DarkC0der-0/Full-Stack-Auth-Demo`
+1. **MongoDB Atlas** (free tier):
+   - Go to [mongodb.com/cloud/atlas](https://www.mongodb.com/cloud/atlas)
+   - Create cluster → Get connection string
+   - Network Access → Allow `0.0.0.0/0`
 
-### Step 2: Configure Service
+2. **DigitalOcean Account**:
+   - Sign up at [digitalocean.com](https://digitalocean.com)
+   - New users get **$200 free credit** for 60 days
 
-| Setting | Value |
-|---------|-------|
-| **Name** | `fullstack-auth-demo` |
-| **Region** | Your preference |
-| **Branch** | `main` |
-| **Environment** | **Docker** |
-| **Dockerfile Path** | `Dockerfile` |
-| **Build Command** | *(leave blank)* |
-| **Start Command** | *(leave blank)* |
+### Deployment Steps
 
-### Step 3: Set Environment Variables
+#### Step 1: Create App
 
-Add these in the **Environment** tab:
+1. Go to [cloud.digitalocean.com/apps](https://cloud.digitalocean.com/apps)
+2. Click **Create App**
+3. Choose **GitHub** → Authorize DigitalOcean
+4. Select repository: `DarkC0der-0/Full-Stack-Auth-Demo`
+5. Select branch: `main`
+6. Click **Next**
 
-```env
+#### Step 2: Configure Resources
+
+DigitalOcean auto-detects the Dockerfile:
+
+- **Resource Type**: Web Service
+- **Name**: `web`
+- **Dockerfile Path**: `Dockerfile` (auto-detected)
+- **HTTP Port**: `3000`
+- **Instance Size**: Basic (512 MB RAM / 1 vCPU) - **$5/month**
+- **Instance Count**: 1
+
+Click **Next**
+
+#### Step 3: Environment Variables
+
+Add these in the **Environment Variables** section:
+
+**Required (set as encrypted):**
+```
 MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/auth-app
 JWT_SECRET=your-super-secret-jwt-key-min-32-chars
-JWT_EXPIRES_IN=7d
-PORT=3000
-BCRYPT_SALT_ROUNDS=10
-NODE_ENV=production
-ENABLE_SWAGGER=true
-FRONTEND_URL=https://<your-service>.onrender.com
-VITE_API_BASE_URL=https://<your-service>.onrender.com
 ```
 
-*(Replace `<your-service>` with your actual Render service name after creation)*
+**Auto-configured (already in `.do/app.yaml`):**
+- `PORT=3000`
+- `NODE_ENV=production`
+- `JWT_EXPIRES_IN=7d`
+- `BCRYPT_SALT_ROUNDS=10`
+- `ENABLE_SWAGGER=true`
 
-### Step 4: Deploy & Verify
+Click **Next**
 
-1. Click **Create Web Service**
-2. Wait for build to complete (~5-10 minutes)
-3. Visit `https://<your-service>.onrender.com/` for frontend
-4. Visit `https://<your-service>.onrender.com/api/docs` for Swagger UI
-5. Test signup/signin flow
+#### Step 4: App Info
+
+- **Name**: `fullstack-auth-demo` (or your choice)
+- **Region**: Choose closest to you (e.g., `nyc`, `sfo`, `fra`)
+
+Click **Next** → **Create Resources**
+
+#### Step 5: Update URLs
+
+After deployment completes, you'll get a URL like:
+```
+https://fullstack-auth-demo-xxxxx.ondigitalocean.app
+```
+
+Go back to **Settings** → **Environment Variables** and add:
+```
+FRONTEND_URL=https://fullstack-auth-demo-xxxxx.ondigitalocean.app
+VITE_API_BASE_URL=https://fullstack-auth-demo-xxxxx.ondigitalocean.app
+```
+
+Click **Save** → App will auto-redeploy
+
+### Verify Deployment
+
+1. **Frontend**: Visit `https://your-app.ondigitalocean.app/`
+2. **API Docs**: Visit `https://your-app.ondigitalocean.app/api/docs`
+3. **Test**: Sign up → Sign in → Access protected routes
+
+### Using the CLI (Alternative)
+
+Install DigitalOcean CLI:
+```bash
+brew install doctl  # macOS
+# or download from: https://docs.digitalocean.com/reference/doctl/how-to/install/
+```
+
+Authenticate:
+```bash
+doctl auth init
+```
+
+Deploy:
+```bash
+doctl apps create --spec .do/app.yaml
+```
+
+### Cost
+
+- **Basic plan**: $5/month (512 MB RAM, 1 vCPU)
+- **Professional plan**: $12/month (1 GB RAM, 1 vCPU)
+- **Free credit**: $200 for new accounts (60 days)
+
+### Auto-Deployment
+
+The `.do/app.yaml` config enables auto-deployment:
+- Every push to `main` triggers a new deployment
+- Build takes ~3-5 minutes
+- Zero-downtime rolling updates
 
 ## CI/CD
 
 - `.github/workflows/ci.yml` runs linting, backend tests, frontend tests, and builds for both apps on every push/PR.
-- Uncomment the `deploy` job to automatically deploy after passing CI (requires Render API key in GitHub secrets).
+- Uncomment the `deploy` job to automatically deploy after passing CI (requires DigitalOcean API token in GitHub secrets).
 
 ## Backend Details
 
