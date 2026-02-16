@@ -102,84 +102,66 @@ npm run test -- --watch  # React Testing Library (if configured)
 
 ## Deployment Options
 
-This repo uses a `Dockerfile` to deploy both frontend and backend in a single container. Choose your preferred platform:
+This repo supports multiple deployment platforms. Choose the one that best fits your needs:
+
+- **[AWS Elastic Beanstalk](#aws-elastic-beanstalk-deployment)** - Production-grade, scalable, full AWS integration
+- **[Render](#render-deployment-docker)** - Simple, Docker-based, generous free tier
 
 ---
 
-## Option 1: Google Cloud Run (Recommended)
+## AWS Elastic Beanstalk Deployment
 
-**Why Cloud Run?** Serverless, auto-scaling, generous free tier (2M requests/month), global CDN.
+Deploy to AWS using Docker with Elastic Beanstalk for production-grade infrastructure.
 
-### Prerequisites
+**📖 Full Guide**: See [`AWS_DEPLOYMENT.md`](AWS_DEPLOYMENT.md) for detailed instructions.
 
-1. **Install Google Cloud SDK**:
+### Quick Start
+
+1. **Install AWS & EB CLI**:
    ```bash
-   # macOS
-   brew install --cask google-cloud-sdk
-   
-   # Or download from: https://cloud.google.com/sdk/docs/install
+   pip install awsebcli --upgrade --user
+   aws configure
    ```
 
-2. **Create Google Cloud Project**:
-   - Go to [console.cloud.google.com](https://console.cloud.google.com)
-   - Create new project (e.g., `fullstack-auth-demo`)
-   - Enable billing (free tier available)
-   - Enable APIs: Cloud Run, Cloud Build, Container Registry
-
-### Deployment Steps
-
-1. **Login & Set Project**:
+2. **Initialize & Create Environment**:
    ```bash
-   gcloud auth login
-   gcloud config set project YOUR_PROJECT_ID
+   eb init -p docker fullstack-auth-demo
+   eb create fullstack-auth-prod
    ```
 
-2. **Build & Push Container**:
+3. **Set Environment Variables**:
    ```bash
-   gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/fullstack-auth-demo
+   eb setenv \
+     MONGODB_URI="mongodb+srv://..." \
+     JWT_SECRET="your-secret" \
+     JWT_EXPIRES_IN="7d" \
+     PORT="3000" \
+     BCRYPT_SALT_ROUNDS="10" \
+     NODE_ENV="production" \
+     ENABLE_SWAGGER="true"
    ```
 
-3. **Deploy to Cloud Run**:
+4. **Get URL and update CORS**:
    ```bash
-   gcloud run deploy fullstack-auth-demo \
-     --image gcr.io/YOUR_PROJECT_ID/fullstack-auth-demo \
-     --platform managed \
-     --region us-central1 \
-     --allow-unauthenticated \
-     --port 3000
+   eb status  # Copy CNAME
+   eb setenv \
+     FRONTEND_URL="https://<your-env>.elasticbeanstalk.com" \
+     VITE_API_BASE_URL="https://<your-env>.elasticbeanstalk.com"
    ```
 
-4. **Set Environment Variables**:
+5. **Deploy**:
    ```bash
-   gcloud run services update fullstack-auth-demo \
-     --region us-central1 \
-     --set-env-vars "MONGODB_URI=mongodb+srv://...,JWT_SECRET=your-secret,JWT_EXPIRES_IN=7d,PORT=3000,BCRYPT_SALT_ROUNDS=10,NODE_ENV=production,ENABLE_SWAGGER=true"
+   eb deploy
+   eb open
    ```
 
-5. **Get your service URL** (e.g., `https://fullstack-auth-demo-xxxxx-uc.a.run.app`) and update:
-   ```bash
-   gcloud run services update fullstack-auth-demo \
-     --region us-central1 \
-     --set-env-vars "FRONTEND_URL=https://your-service-url,VITE_API_BASE_URL=https://your-service-url"
-   ```
-
-6. **Verify**:
-   - Frontend: `https://your-service-url/`
-   - API Docs: `https://your-service-url/api/docs`
-
-### Automated Deployment (Optional)
-
-Use the included `cloudbuild.yaml` for CI/CD:
-
-```bash
-gcloud builds submit --config cloudbuild.yaml
-```
-
-Or connect to GitHub for automatic deployments on push.
+**Cost**: ~$15-30/month (free tier available for 12 months)
 
 ---
 
-## Option 2: Render
+## Render Deployment (Docker)
+
+This repo uses a `Dockerfile` to deploy both frontend and backend in a single container on Render.
 
 ### Step 1: Create Render Web Service
 
@@ -214,6 +196,8 @@ ENABLE_SWAGGER=true
 FRONTEND_URL=https://<your-service>.onrender.com
 VITE_API_BASE_URL=https://<your-service>.onrender.com
 ```
+
+*(Replace `<your-service>` with your actual Render service name after creation)*
 
 ### Step 4: Deploy & Verify
 
